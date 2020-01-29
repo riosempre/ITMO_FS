@@ -1,0 +1,137 @@
+from __future__ import print_function, division
+import numpy as np
+import random
+import scipy as sp
+from sklearn.model_selection import train_test_split
+
+
+class Boruta(BaseEstimator, TransformerMixin):
+    """
+    Python-based implementation of the Boruta R method.
+    
+    The Boruta method is based on tree-based methods, such as Random Forest,
+    which are capable of calculating feature importance.
+    
+    Boruta creates "shadow features" which have the same distribution as
+    the actual features but do not correlate with anything. The highest 
+    feature importance of these shadow features is then used as a gauge
+    for determining which features are relevant.
+    
+    Boruta is not a minimal-optimal method, and finds all relevant features,
+    not just the minimal poptimal collection. It should therefore be used
+    when a larger amount of features has to be saved.
+    
+
+    Parameters
+    ----------
+    estimator : object
+        A supervised learning estimator. Must be able to return feature importance.
+    n_estimators : int, default = 1000
+        The number of estimators in the chosen ensemble method.
+    perc : int, default = 100
+        Percentage of maximum shadow feature importance which needs to be surpassed in order to be considered relevant.
+    alpha : float, default = 0.05
+        Level at which the corrected p-values will get rejected during both
+        correction steps.
+    max_iter : int, default = 100
+        The number of maximum iterations to perform.
+    verbose : bool, default=0
+        Controls verbosity of output.
+    Attributes
+    ----------
+    n_features_ : int
+        The number of selected features.
+    support_ : array of shape [n_features]
+        The mask of selected features - only confirmed ones are True.
+    support_unclear_ : array of shape [n_features]
+        The mask of selected unclear features, which haven't gained enough
+        support during the max_iter number of iterations..
+    ranking_ : array of shape [n_features]
+        The feature ranking, such that ``ranking_[i]`` corresponds to the
+        ranking position of the i-th feature. Selected (i.e., estimated
+        best) features are assigned rank 1 and unclear features are assigned
+        rank 2.
+
+    References
+    ----------
+    [1] Kursa M., Rudnicki W., "Feature Selection with the Boruta Package"
+        Journal of Statistical Software, Vol. 36, Issue 11, Sep 2010
+    """
+
+    def __init__(self, estimator, n_estimators=1000, perc=100, alpha=0.05,
+                 max_iter=100, verbose=False):
+        self.estimator = estimator
+        self.n_estimators = n_estimators
+        self.perc = perc
+        self.alpha = alpha
+        self.max_iter = max_iter
+        self.verbose = verbose
+
+    def fit(self, X, y):
+        """
+        Fits the Boruta feature selection.
+        Parameters
+        ----------
+        X : array-like, shape = [n_samples, n_features]
+            The training input.
+        y : array-like, shape = [n_samples]
+            The target values.
+        """
+
+        return self._fit(X, y)
+
+    def transform(self, X, remove_unclear=False, return_df=False):
+        """
+        Removes the features which have not been selected by Boruta.
+        Parameters
+        ----------
+        X : array-like, shape = [n_samples, n_features]
+            The training input.
+        remove_unclear: boolean, default = False
+            Remove unclear features if true.        
+        return_df : boolean, default = False
+            Returns a Pandas dataframe if true.
+        Returns
+        -------
+        X : array-like, shape = [n_samples, n_features_]
+            The input matrix X's columns are reduced to the features selected by Boruta.
+        """
+
+        return self._transform(X, remove_unclear, return_df)
+
+    def fit_transform(self, X, y, remove_unclear=False, return_df=False):
+        """
+        Fits Boruta, then removes irrelevant features.
+        Parameters
+        ----------
+        X : array-like, shape = [n_samples, n_features]
+            The training input.
+        y : array-like, shape = [n_samples]
+            The target values.
+        remove_unclear: boolean, default = False
+            Remove unclear features if true.        
+        return_df : boolean, default = False
+            Returns a Pandas dataframe if true.
+        Returns
+        -------
+        X : array-like, shape = [n_samples, n_features_]
+            The input matrix X's columns are reduced to the features selected by Boruta.
+        """
+
+        self._fit(X, y)
+        return self._transform(X, remove_unclear, return_df)
+
+    def score(self, X, y, method, remove_unclear=False):
+        """
+        Tests Boruta by comparing the performance of a learning method before and after feature selection
+        Parameters
+        ----------
+        X : array-like, shape = [n_samples, n_features]
+            The training input.
+        y : array-like, shape = [n_samples]
+            The target values.
+        remove_unclear: boolean, default = False
+            Remove unclear features if true.    
+        method: object
+            The learning method.
+        """
